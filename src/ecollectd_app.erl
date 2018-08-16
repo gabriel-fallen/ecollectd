@@ -10,16 +10,24 @@
 %% Application callbacks
 -export([start/2, stop/1]).
 
+-export([report/2, average/1]).
+
 %%====================================================================
 %% API
 %%====================================================================
 
 start(_StartType, _StartArgs) ->
-    ecollectd_sup:start_link().
+  ecollectd_sup:start_link().
 
 %%--------------------------------------------------------------------
 stop(_State) ->
-    ok.
+  ok.
+
+report(Id, Value) ->
+  dispatcher:record(Id, Value).
+
+average(Id) ->
+  dispatcher:average(Id).
 
 %%====================================================================
 %% Internal functions
