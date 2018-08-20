@@ -15,15 +15,13 @@
 
 -define(SERVER, ?MODULE).
 
--define(DISPATCHER, #{id => dispatcher, start => {dispatcher, start_link, []}}).
--define(COLLECTOR_SUP, #{id => collector_sup, start => {collector_sup, start_link, []}, type => supervisor}).
 
 %%====================================================================
 %% API functions
 %%====================================================================
 
 start_link() ->
-    supervisor:start_link({local, ?SERVER}, ?MODULE, []).
+  supervisor:start_link({local, ?SERVER}, ?MODULE, []).
 
 %%====================================================================
 %% Supervisor callbacks
@@ -34,7 +32,10 @@ start_link() ->
 %% Before OTP 18 tuples must be used to specify a child. e.g.
 %% Child :: {Id,StartFunc,Restart,Shutdown,Type,Modules}
 init([]) ->
-    {ok, { {one_for_all, 0, 1}, [?DISPATCHER, ?COLLECTOR_SUP]} }.
+  MaxRestart = 5,
+  MaxTime = 3600,
+  ets:new(ecollectd_collectors, [set, public, named_table, {read_concurrency, true}]),
+  {ok, { {one_for_one, MaxRestart, MaxTime}, []} }.
 
 %%====================================================================
 %% Internal functions

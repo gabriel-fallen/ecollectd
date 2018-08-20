@@ -12,6 +12,9 @@
 
 -export([report/2, average/1]).
 
+-define(SPEC(Id, Value), #{id => Id, start => {collector, start_link, [Value]}, restart => temporary}).
+
+
 %%====================================================================
 %% API
 %%====================================================================
@@ -24,11 +27,35 @@ stop(_State) ->
   ok.
 
 report(Id, Value) ->
-  dispatcher:record(Id, Value).
+  case ets:lookup(ecollectd_collectors, Id) of
+    [{Id, Pid}] ->
+      case is_process_alive(Pid) of
+        true  -> collector:record(Pid, Value);
+        false ->
+          Pid = new_collector(Id, Value),
+          ets:insert(ecollectd_collectors, {Id, Pid})
+      end;
+    [] ->
+      Pid = new_collector(Id, Value),
+      ets:insert(ecollectd_collectors, {Id, Pid})
+  end,
+  ok.
 
 average(Id) ->
-  dispatcher:average(Id).
+  case ets:lookup(ecollectd_collectors, Id) of
+    [{Id, Pid}] ->
+      case is_process_alive(Pid) of
+        true  -> collector:average(Pid);
+        false -> 0
+      end;
+    [] ->
+      0 % kinda default value. FIXME: should I just crash?
+  end.
 
 %%====================================================================
 %% Internal functions
 %%====================================================================
+
+new_collector(Id, Value) ->
+  {ok, Pid} = supervisor:start_child(ecollectd_sup, ?SPEC(Id, Value)),
+  Pid.
