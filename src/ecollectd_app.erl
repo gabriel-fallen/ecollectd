@@ -24,7 +24,10 @@ start(_StartType, _StartArgs) ->
 
 %%--------------------------------------------------------------------
 stop(_State) ->
-  ok.
+  case whereis(ecollectd_sup) of
+    P when is_pid(P) -> exit(P, kill);
+    _ -> ok
+  end.
 
 report(Id, Value) ->
   case ets:lookup(ecollectd_collectors, Id) of
@@ -57,5 +60,9 @@ average(Id) ->
 %%====================================================================
 
 new_collector(Id, Value) ->
-  {ok, Pid} = supervisor:start_child(ecollectd_sup, ?SPEC(Id, Value)),
-  Pid.
+  case supervisor:start_child(ecollectd_sup, ?SPEC(Id, Value)) of
+    {ok, Pid} -> Pid;
+    {error, {already_started, Pid}} -> % FIXME: why is this happening at all?
+      collector:record(Pid, Value),
+      Pid
+  end.
